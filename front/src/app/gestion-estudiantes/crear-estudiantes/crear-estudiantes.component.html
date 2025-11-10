@@ -1,0 +1,24 @@
+<div class="container">
+  <h2 class="form-title">Crear Estudiante</h2>
+
+  <form class="student-form" [formGroup]="estudianteForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label for="codigo">Código</label>
+      <input id="codigo" class="form-control" formControlName="codigo" type="text" />
+    </div>
+
+    <div class="form-group">
+      <label for="nombre">Nombre</label>
+      <input id="nombre" class="form-control" formControlName="nombre" type="text" />
+    </div>
+
+    <div class="form-group">
+      <label for="promedio">Promedio</label>
+      <input id="promedio" class="form-control" formControlName="promedio" type="number" />
+    </div>
+
+    <button class="btn btn-success" type="submit" [disabled]="estudianteForm.invalid">
+      Guardar
+    </button>
+  </form>
+</div>

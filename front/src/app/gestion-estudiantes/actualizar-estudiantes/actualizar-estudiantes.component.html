@@ -1,0 +1,24 @@
+<div class="container">
+  <h2 class="form-title">Actualizar Estudiante</h2>
+
+  <form class="student-form" [formGroup]="estudianteForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label for="codigo">Código</label>
+      <input id="codigo" class="form-control disabled" type="text" formControlName="codigo" [disabled]="true" />
+    </div>
+
+    <div class="form-group">
+      <label for="nombre">Nombre</label>
+      <input id="nombre" class="form-control" type="text" formControlName="nombre" />
+    </div>
+
+    <div class="form-group">
+      <label for="promedio">Promedio</label>
+      <input id="promedio" class="form-control" type="number" step="0.1" formControlName="promedio" />
+    </div>
+
+    <button class="btn btn-primary" type="submit" [disabled]="estudianteForm.invalid">
+      Actualizar
+    </button>
+  </form>
+</div>

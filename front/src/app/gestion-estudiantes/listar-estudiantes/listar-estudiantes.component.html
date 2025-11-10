@@ -1,0 +1,37 @@
+<div class="container">
+  <h1 class="title">Lista de estudiantes</h1>
+
+  <div class="table-wrapper">
+    <table class="students-table">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Nombre</th>
+          <th>Promedio</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let estudiante of estudiantes">
+          <td>{{ estudiante.codigo }}</td>
+          <td>{{ estudiante.nombre }}</td>
+          <td>{{ estudiante.promedio }}</td>
+          <td>
+            <button
+              class="btn btn-primary"
+              (click)="actualizarEstudiante(estudiante.codigo)">
+              Actualizar
+            </button>
+            <button
+              class="btn btn-danger"
+              (click)="eliminarEstudiante(estudiante.codigo)">
+              Eliminar
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn btn-success" (click)="crearEstudiante()">Crear estudiante</button>
+</div>
