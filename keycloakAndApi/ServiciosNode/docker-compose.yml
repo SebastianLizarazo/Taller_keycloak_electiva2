@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  oracle-xe:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: estudiantes_oracle_db
+    restart: unless-stopped
+    environment:
+      # Contraseña para el usuario SYS y SYSTEM
+      ORACLE_PASSWORD: OraclePass2024
+      # Usuario de aplicación que se creará automáticamente
+      APP_USER: estudiantes_app
+      APP_USER_PASSWORD: estudiantes_pass_2024
+    ports:
+      - "1521:1521"
+      - "5500:5500"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+      - ./init-oracle.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    shm_size: 1gb
+
+volumes:
+  oracle_data:
+    driver: local

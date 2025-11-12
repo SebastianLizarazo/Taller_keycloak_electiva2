@@ -15,9 +15,9 @@ app.use(cors({
 app.use(express.json()); 
 
 const dbConfig = {
-  user: "claseMartes",
-  password: "uptc",
-  connectString: "localhost:1521/xe"
+  user: process.env.ORACLE_USER || "estudiantes_app",
+  password: process.env.ORACLE_PASSWORD || "estudiantes_pass_2024",
+  connectString: process.env.ORACLE_DSN || "localhost:1521/XEPDB1"
 };
 
 const keycloakConfig = {
@@ -116,36 +116,140 @@ app.post('/login', async (req, res) => {
   } 
 }); 
  
-app.get('/estudiantes', tokenRequired("usuario_univalle"), async (req, res) => { 
+app.get('/listarEstudiantes', tokenRequired("usuario_univalle"), async (req, res) => { 
   let connection; 
   try { 
     connection = await oracledb.getConnection(dbConfig); 
-    const result = await connection.execute("SELECT * FROM ESTUDIANTE", [], { outFormat: oracledb.OUT_FORMAT_OBJECT }); 
+    const result = await connection.execute(
+      "SELECT codigo, nombre, promedio, fecha_creacion FROM estudiantes ORDER BY nombre", 
+      [], 
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    ); 
     res.status(200).json(result.rows); 
   } catch (err) { 
     console.error('Error al listar estudiantes:', err); 
-    res.status(500).json({ error: 'Error al listar estudiantes' }); 
+    res.status(500).json({ error: 'Error al listar estudiantes', detalle: err.message }); 
   } finally { 
     if (connection) await connection.close().catch(console.error); 
   } 
 }); 
  
-app.get('/listaEstudiantes/:id', tokenRequired("usuario_univalle"), async (req, res) => { 
+app.get('/obtenerEstudiante/:codigo', tokenRequired("usuario_univalle"), async (req, res) => { 
   let connection; 
   try { 
     connection = await oracledb.getConnection(dbConfig); 
-    const result = await connection.execute("SELECT * FROM ESTUDIANTE WHERE ID = :id", [req.params.id], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    const result = await connection.execute(
+      "SELECT codigo, nombre, promedio, fecha_creacion FROM estudiantes WHERE codigo = :codigo", 
+      [req.params.codigo], 
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
     if (result.rows.length === 0) {
-      res.status(404).json({ message: 'Estudiante no encontrado' });
+      res.status(404).json({ mensaje: 'Estudiante no encontrado' });
     } else {
       res.status(200).json(result.rows[0]);
     }
   } catch (err) {
-console.error('Error al buscar estudiante:', err); 
-res.status(500).json({ error: 'Error al buscar estudiante' }); 
+    console.error('Error al buscar estudiante:', err); 
+    res.status(500).json({ error: 'Error al buscar estudiante', detalle: err.message }); 
   } finally { 
-if (connection) await connection.close().catch(console.error); 
-} 
+    if (connection) await connection.close().catch(console.error); 
+  } 
+});
+
+app.post('/crearEstudiante', tokenRequired("usuario_univalle"), async (req, res) => {
+  let connection;
+  try {
+    const { codigo, nombre, promedio } = req.body;
+
+    if (!codigo || !nombre || promedio === undefined) {
+      return res.status(400).json({ error: 'Faltan datos requeridos (codigo, nombre, promedio)' });
+    }
+
+    if (promedio < 0 || promedio > 5) {
+      return res.status(400).json({ error: 'El promedio debe estar entre 0 y 5' });
+    }
+
+    connection = await oracledb.getConnection(dbConfig);
+    await connection.execute(
+      `INSERT INTO estudiantes (codigo, nombre, promedio) VALUES (:codigo, :nombre, :promedio)`,
+      { codigo, nombre, promedio },
+      { autoCommit: true }
+    );
+
+    res.status(201).json({ mensaje: 'Estudiante creado exitosamente' });
+  } catch (err) {
+    console.error('Error al crear estudiante:', err);
+    if (err.errorNum === 1) { // ORA-00001: unique constraint violated
+      res.status(400).json({ error: 'El código del estudiante ya existe' });
+    } else {
+      res.status(500).json({ error: 'Error al crear estudiante', detalle: err.message });
+    }
+  } finally {
+    if (connection) await connection.close().catch(console.error);
+  }
+});
+
+app.put('/actualizarEstudiante/:codigo', tokenRequired("usuario_univalle"), async (req, res) => {
+  let connection;
+  try {
+    const { codigo } = req.params;
+    const { nombre, promedio } = req.body;
+
+    if (!nombre && promedio === undefined) {
+      return res.status(400).json({ error: 'Debe proporcionar al menos nombre o promedio' });
+    }
+
+    if (promedio !== undefined && (promedio < 0 || promedio > 5)) {
+      return res.status(400).json({ error: 'El promedio debe estar entre 0 y 5' });
+    }
+
+    connection = await oracledb.getConnection(dbConfig);
+    
+    const result = await connection.execute(
+      `UPDATE estudiantes 
+       SET nombre = :nombre, promedio = :promedio 
+       WHERE codigo = :codigo`,
+      { codigo, nombre, promedio },
+      { autoCommit: true }
+    );
+
+    if (result.rowsAffected === 0) {
+      res.status(404).json({ mensaje: 'Estudiante no encontrado' });
+    } else {
+      res.status(200).json({ mensaje: 'Estudiante actualizado exitosamente' });
+    }
+  } catch (err) {
+    console.error('Error al actualizar estudiante:', err);
+    res.status(500).json({ error: 'Error al actualizar estudiante', detalle: err.message });
+  } finally {
+    if (connection) await connection.close().catch(console.error);
+  }
+});
+
+app.delete('/eliminarEstudiante/:codigo', tokenRequired("usuario_univalle"), async (req, res) => {
+  let connection;
+  try {
+    const { codigo } = req.params;
+
+    connection = await oracledb.getConnection(dbConfig);
+    
+    const result = await connection.execute(
+      `DELETE FROM estudiantes WHERE codigo = :codigo`,
+      [codigo],
+      { autoCommit: true }
+    );
+
+    if (result.rowsAffected === 0) {
+      res.status(404).json({ mensaje: 'Estudiante no encontrado' });
+    } else {
+      res.status(200).json({ mensaje: 'Estudiante eliminado exitosamente' });
+    }
+  } catch (err) {
+    console.error('Error al eliminar estudiante:', err);
+    res.status(500).json({ error: 'Error al eliminar estudiante', detalle: err.message });
+  } finally {
+    if (connection) await connection.close().catch(console.error);
+  }
 }); 
 app.use((req, res) => { 
 res.status(404).json({ error: 'Ruta no encontrada' }); 
