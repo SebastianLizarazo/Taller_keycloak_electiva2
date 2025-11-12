@@ -76,20 +76,56 @@ def login():
 @app.route('/listaEstudiantes', methods=['GET'])
 @token_required(rol_requerido="usuario_uptc")
 def lista_estudiantes(userinfo):
-    estudiantes.clear()
-    estudiante = EstudianteEjemplo("1", "Jorge", "30")
-    estudiante1 = EstudianteEjemplo("2", "Ana", "23")
-    estudiante2 = EstudianteEjemplo("3", "Luis", "28")
-    estudiante3 = EstudianteEjemplo("4", "Gabriel", "25")
-    estudiante4 = EstudianteEjemplo("5", "Luciana", "24")
-    estudiantes.extend([
-        estudiante.to_json(),
-        estudiante1.to_json(),
-        estudiante2.to_json(),
-        estudiante3.to_json(),
-        estudiante4.to_json()
-    ])
     return jsonify(estudiantes)
+
+
+@app.route('/crearEstudiante', methods=['POST'])
+@token_required(rol_requerido="usuario_uptc")
+def crear_estudiante(userinfo):
+    data = request.get_json()
+    nombre = data.get('nombre')
+    codigo = data.get('codigo')
+    promedio = data.get('promedio')
+
+    estudiante = EstudianteEjemplo(nombre, codigo, promedio)
+    estudiantes.append(estudiante.to_json())
+
+    return jsonify({"mensaje": "Estudiante creado exitosamente"}), 201
+
+
+@app.route('/obtenerEstudiante/<codigo>', methods=['GET'])
+@token_required(rol_requerido="usuario_uptc")
+def obtener_estudiante(userinfo, codigo):
+    estudiante = next((e for e in estudiantes if e['codigo'] == codigo), None)
+
+    if estudiante is not None:
+        return jsonify(estudiante), 200
+    else:
+        return jsonify({"mensaje": "Estudiante no encontrado"}), 404
+
+
+@app.route('/actualizarEstudiante/<codigo>', methods=['PUT'])
+@token_required(rol_requerido="usuario_uptc")
+def actualizar_estudiante(userinfo, codigo):
+    data = request.get_json()
+    estudiante = next((e for e in estudiantes if e['codigo'] == codigo), None)
+
+    if estudiante is not None:
+        estudiante['nombre'] = data.get('nombre', estudiante['nombre'])
+        estudiante['promedio'] = data.get('promedio', estudiante['promedio'])
+
+        return jsonify({"mensaje": "Estudiante actualizado exitosamente"}), 200
+    else:
+        return jsonify({"mensaje": "Estudiante no encontrado"}), 404
+
+
+@app.route('/eliminarEstudiante/<codigo>', methods=['DELETE'])
+@token_required(rol_requerido="usuario_uptc")
+def eliminar_estudiante(userinfo, codigo):
+    global estudiantes
+    estudiantes = [e for e in estudiantes if e['codigo'] != codigo]
+
+    return jsonify({"mensaje": "Estudiante eliminado exitosamente"}), 200
 
 
 if __name__ == '__main__':
