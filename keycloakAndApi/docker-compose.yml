@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: estudiantes_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: estudiantes_app
+      POSTGRES_PASSWORD: estudiantes_pass_2024
+      POSTGRES_DB: estudiantes_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U estudiantes_app -d estudiantes_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local

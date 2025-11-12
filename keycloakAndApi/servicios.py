@@ -2,13 +2,15 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from keycloak import KeycloakOpenID
 from EstudianteGestion import EstudianteEjemplo
+from estudiante_repository import EstudianteRepository
 from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = "uptc"
 CORS(app)
 
-estudiantes = []
+# Inicializar el repositorio de base de datos
+db = EstudianteRepository()
 
 
 keycloak_openid = KeycloakOpenID(
@@ -76,7 +78,8 @@ def login():
 @app.route('/listaEstudiantes', methods=['GET'])
 @token_required(rol_requerido="usuario_uptc")
 def lista_estudiantes(userinfo):
-    return jsonify(estudiantes)
+    estudiantes = db.obtener_estudiantes()
+    return jsonify([est.to_json() for est in estudiantes])
 
 
 @app.route('/crearEstudiante', methods=['POST'])
@@ -88,18 +91,20 @@ def crear_estudiante(userinfo):
     promedio = data.get('promedio')
 
     estudiante = EstudianteEjemplo(nombre, codigo, promedio)
-    estudiantes.append(estudiante.to_json())
 
-    return jsonify({"mensaje": "Estudiante creado exitosamente"}), 201
+    if db.crear_estudiante(estudiante):
+        return jsonify({"mensaje": "Estudiante creado exitosamente"}), 201
+    else:
+        return jsonify({"error": "El código del estudiante ya existe"}), 400
 
 
 @app.route('/obtenerEstudiante/<codigo>', methods=['GET'])
 @token_required(rol_requerido="usuario_uptc")
 def obtener_estudiante(userinfo, codigo):
-    estudiante = next((e for e in estudiantes if e['codigo'] == codigo), None)
+    estudiante = db.obtener_estudiante_por_codigo(codigo)
 
     if estudiante is not None:
-        return jsonify(estudiante), 200
+        return jsonify(estudiante.to_json()), 200
     else:
         return jsonify({"mensaje": "Estudiante no encontrado"}), 404
 
@@ -108,12 +113,12 @@ def obtener_estudiante(userinfo, codigo):
 @token_required(rol_requerido="usuario_uptc")
 def actualizar_estudiante(userinfo, codigo):
     data = request.get_json()
-    estudiante = next((e for e in estudiantes if e['codigo'] == codigo), None)
+    nombre = data.get('nombre')
+    promedio = data.get('promedio')
 
-    if estudiante is not None:
-        estudiante['nombre'] = data.get('nombre', estudiante['nombre'])
-        estudiante['promedio'] = data.get('promedio', estudiante['promedio'])
+    estudiante = EstudianteEjemplo(nombre, codigo, promedio)
 
+    if db.actualizar_estudiante(codigo, estudiante):
         return jsonify({"mensaje": "Estudiante actualizado exitosamente"}), 200
     else:
         return jsonify({"mensaje": "Estudiante no encontrado"}), 404
@@ -122,11 +127,15 @@ def actualizar_estudiante(userinfo, codigo):
 @app.route('/eliminarEstudiante/<codigo>', methods=['DELETE'])
 @token_required(rol_requerido="usuario_uptc")
 def eliminar_estudiante(userinfo, codigo):
-    global estudiantes
-    estudiantes = [e for e in estudiantes if e['codigo'] != codigo]
-
-    return jsonify({"mensaje": "Estudiante eliminado exitosamente"}), 200
+    if db.eliminar_estudiante(codigo):
+        return jsonify({"mensaje": "Estudiante eliminado exitosamente"}), 200
+    else:
+        return jsonify({"mensaje": "Estudiante no encontrado"}), 404
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    try:
+        app.run(debug=True)
+    finally:
+        # Cerrar la conexión cuando se detenga el servidor
+        db.cerrar_conexion()
