@@ -1,8 +1,11 @@
 -- Script de inicialización para Oracle Database
 -- Se ejecuta automáticamente cuando se crea el contenedor
 
--- El usuario estudiantes_app ya se crea automáticamente por las variables de entorno
--- Solo necesitamos crear la tabla y datos de ejemplo
+-- Conectar al usuario de aplicación en la PDB
+ALTER SESSION SET CONTAINER = XEPDB1;
+
+-- Conectar como el usuario de aplicación
+CONNECT estudiantes_app/estudiantes_pass_2024@XEPDB1;
 
 -- Crear la tabla de estudiantes
 CREATE TABLE estudiantes (
@@ -24,3 +27,5 @@ CREATE INDEX idx_estudiantes_nombre ON estudiantes(nombre);
 
 -- Mostrar información
 SELECT 'Tabla ESTUDIANTES creada con ' || COUNT(*) || ' registros' AS info FROM estudiantes;
+
+EXIT;

@@ -12,7 +12,7 @@ services:
       APP_USER: estudiantes_app
       APP_USER_PASSWORD: estudiantes_pass_2024
     ports:
-      - "1521:1521"
+      - "1522:1521"  # Puerto 1522 externamente -> 1521 internamente
       - "5500:5500"
     volumes:
       - oracle_data:/opt/oracle/oradata

@@ -7,9 +7,10 @@ const app = express();
 const port = 3000;
 
 app.use(cors({
-  origin: 'localhost:4200',
+  origin: 'http://localhost:4200',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 app.use(express.json()); 
@@ -17,7 +18,16 @@ app.use(express.json());
 const dbConfig = {
   user: process.env.ORACLE_USER || "estudiantes_app",
   password: process.env.ORACLE_PASSWORD || "estudiantes_pass_2024",
-  connectString: process.env.ORACLE_DSN || "localhost:1521/XEPDB1"
+  connectString: process.env.ORACLE_DSN || "localhost:1522/XEPDB1",  // Puerto 1522
+  // Configuraciones adicionales para mejorar la estabilidad
+  poolMin: 2,
+  poolMax: 10,
+  poolIncrement: 1,
+  poolTimeout: 60,
+  connectTimeout: 60,
+  // Reconexión automática
+  retryCount: 3,
+  retryDelay: 1000
 };
 
 const keycloakConfig = {
@@ -28,7 +38,20 @@ const keycloakConfig = {
 };
 
 let keycloakClient; 
- 
+let oraclePool;
+
+// Inicializar pool de conexiones Oracle
+async function initOraclePool() {
+  try {
+    oraclePool = await oracledb.createPool(dbConfig);
+    console.log('Pool de conexiones Oracle inicializado correctamente');
+  } catch (err) {
+    console.error('Error al inicializar pool de Oracle:', err);
+    // Reintentar después de 5 segundos
+    setTimeout(initOraclePool, 5000);
+  }
+}
+
 async function initKeycloak() { 
   try { 
     const keycloakIssuer = await 
@@ -46,6 +69,7 @@ Issuer.discover(`${keycloakConfig.serverUrl}realms/${keycloakConfig.realm}`)
   } 
 } 
 initKeycloak(); 
+initOraclePool();
  
 function tokenRequired(rolRequerido) { 
   return async (req, res, next) => { 
@@ -116,10 +140,13 @@ app.post('/login', async (req, res) => {
   } 
 }); 
  
-app.get('/listarEstudiantes', tokenRequired("usuario_univalle"), async (req, res) => { 
+app.get('/listaEstudiantes', tokenRequired("usuario_univalle"), async (req, res) => { 
   let connection; 
-  try { 
-    connection = await oracledb.getConnection(dbConfig); 
+  try {
+    if (!oraclePool) {
+      return res.status(503).json({ error: 'Base de datos no disponible' });
+    }
+    connection = await oraclePool.getConnection(); 
     const result = await connection.execute(
       "SELECT codigo, nombre, promedio, fecha_creacion FROM estudiantes ORDER BY nombre", 
       [], 
@@ -136,8 +163,11 @@ app.get('/listarEstudiantes', tokenRequired("usuario_univalle"), async (req, res
  
 app.get('/obtenerEstudiante/:codigo', tokenRequired("usuario_univalle"), async (req, res) => { 
   let connection; 
-  try { 
-    connection = await oracledb.getConnection(dbConfig); 
+  try {
+    if (!oraclePool) {
+      return res.status(503).json({ error: 'Base de datos no disponible' });
+    }
+    connection = await oraclePool.getConnection(); 
     const result = await connection.execute(
       "SELECT codigo, nombre, promedio, fecha_creacion FROM estudiantes WHERE codigo = :codigo", 
       [req.params.codigo], 
@@ -169,7 +199,10 @@ app.post('/crearEstudiante', tokenRequired("usuario_univalle"), async (req, res)
       return res.status(400).json({ error: 'El promedio debe estar entre 0 y 5' });
     }
 
-    connection = await oracledb.getConnection(dbConfig);
+    if (!oraclePool) {
+      return res.status(503).json({ error: 'Base de datos no disponible' });
+    }
+    connection = await oraclePool.getConnection();
     await connection.execute(
       `INSERT INTO estudiantes (codigo, nombre, promedio) VALUES (:codigo, :nombre, :promedio)`,
       { codigo, nombre, promedio },
@@ -203,7 +236,10 @@ app.put('/actualizarEstudiante/:codigo', tokenRequired("usuario_univalle"), asyn
       return res.status(400).json({ error: 'El promedio debe estar entre 0 y 5' });
     }
 
-    connection = await oracledb.getConnection(dbConfig);
+    if (!oraclePool) {
+      return res.status(503).json({ error: 'Base de datos no disponible' });
+    }
+    connection = await oraclePool.getConnection();
     
     const result = await connection.execute(
       `UPDATE estudiantes 
@@ -231,7 +267,10 @@ app.delete('/eliminarEstudiante/:codigo', tokenRequired("usuario_univalle"), asy
   try {
     const { codigo } = req.params;
 
-    connection = await oracledb.getConnection(dbConfig);
+    if (!oraclePool) {
+      return res.status(503).json({ error: 'Base de datos no disponible' });
+    }
+    connection = await oraclePool.getConnection();
     
     const result = await connection.execute(
       `DELETE FROM estudiantes WHERE codigo = :codigo`,
