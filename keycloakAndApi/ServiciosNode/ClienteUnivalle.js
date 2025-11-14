@@ -148,7 +148,7 @@ app.get('/listaEstudiantes', tokenRequired("usuario_univalle"), async (req, res)
     }
     connection = await oraclePool.getConnection(); 
     const result = await connection.execute(
-      "SELECT codigo, nombre, promedio, fecha_creacion FROM estudiantes ORDER BY nombre", 
+      'SELECT codigo AS "codigo", nombre AS "nombre", promedio AS "promedio", fecha_creacion AS "fecha_creacion" FROM estudiantes ORDER BY nombre', 
       [], 
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     ); 
@@ -169,7 +169,7 @@ app.get('/obtenerEstudiante/:codigo', tokenRequired("usuario_univalle"), async (
     }
     connection = await oraclePool.getConnection(); 
     const result = await connection.execute(
-      "SELECT codigo, nombre, promedio, fecha_creacion FROM estudiantes WHERE codigo = :codigo", 
+      'SELECT codigo AS "codigo", nombre AS "nombre", promedio AS "promedio", fecha_creacion AS "fecha_creacion" FROM estudiantes WHERE codigo = :codigo', 
       [req.params.codigo], 
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
